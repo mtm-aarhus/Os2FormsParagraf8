@@ -49,7 +49,10 @@ SHAREPOINT_CERT_CREDENTIAL = "SharePointCert"
 
 # Constant med base-URL'en; sitets sti saettes bagefter.
 SHAREPOINT_BASE_CONSTANT = "AarhusKommuneSharePoint"
-SHAREPOINT_SITE_PATH = "/Teams/tea-teamsiteXXXXX"  # TODO: udfyldes naar sitet er valgt
+
+# Natur og Miljoe Dashboard — samme site som SPFx-frontenden bygges paa.
+# Bemaerk lille t i /teams/, hvor de oevrige MTM-robotter bruger /Teams/.
+SHAREPOINT_SITE_PATH = "/teams/NaturogMiljDashboard"
 
 # Listenavne. Skal matche SHAREPOINT-LISTER.md praecist.
 LIST_ANSOGNINGER = "P8Ansogninger"
