@@ -24,14 +24,30 @@ Færdigt:
 Mangler:
 
 - **Feltmapningen** (`src/mapper.py`). Blanketten er ændret markant, så de gamle
-  feltnavne gælder ikke længere. Kræver en rå JSON-udskrift fra den nuværende
+  feltnavne gælder ikke længere. Kræver en strukturudskrift fra den nuværende
   blanket — se nedenfor.
 - Oprettelse af SharePoint-listerne, og valg af site
   (`SHAREPOINT_SITE_PATH` i `robot_framework/config.py`)
-- Bekræftelse af blankettens maskinnavn (`WEBFORM_ID`)
 - Webhook-opsætning på blanketten mod PyOrchestrator API'et
 - Triggere i OpenOrchestrator
 - SPFx-dashboardet (separat projekt)
+
+## Blanketten
+
+| | |
+|---|---|
+| Navn | Ansøgning om §8-tilladelse efter jordforureningsloven |
+| Maskinnavn | `ansoegning_om_ss8_tilladelse_beb` |
+| REST base | `https://selvbetjening.aarhuskommune.dk/webform_rest/` |
+| [Blanketten](https://selvbetjening.aarhuskommune.dk/da/content/upload-ansoegning-om-ss8-tilladelse-efter-jordforureningsloven) | |
+
+Maskinnavnet er præcis 32 tegn, fordi Drupal afkorter der — `_beb` er en
+afhugget rest, ikke en tastefejl.
+
+Adgang til API'et gives **pr. blanket** i OS2Forms. En nøgle der virker mod en
+anden af kommunens blanketter virker ikke automatisk her; brugeren bag nøglen
+skal eksplicit have adgang til denne. Svarer endpointet 403, er det typisk det,
+der mangler.
 
 ## Beslægtede projekter
 
