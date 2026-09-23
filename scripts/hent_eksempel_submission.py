@@ -51,12 +51,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from robot_framework import config  # noqa: E402  pylint: disable=wrong-import-position
 from src.os2forms_client import OS2FormsClient  # noqa: E402  pylint: disable=wrong-import-position
+from src.struktur import describe_structure  # noqa: E402  pylint: disable=wrong-import-position
 
 DEFAULT_OUTPUT = Path("lokalt") / "eksempel_submission.json"
-
-# Felter hvor selve vaerdien er en type og ikke persondata. De vises i
-# strukturudskriften, fordi de afgoer hvilke Valg-kolonner listerne skal have.
-SAFE_VALUE_HINTS = ("rolle", "type", "status", "vaelg_", "er_", "oensker_", "har_")
 
 
 def parse_args() -> argparse.Namespace:
@@ -118,56 +115,6 @@ def build_client(webform_id: str) -> OS2FormsClient:
     return OS2FormsClient(base_url=base_url, webform_id=webform_id, api_key=api_key)
 
 
-def describe(value, path: str = "", show_values: bool = False, depth: int = 0) -> list[str]:
-    """Beskriver en JSON-struktur som linjer, med vaerdierne udeladt.
-
-    Formaalet er at kunne dele blankettens feltnavne og facon uden at dele
-    borgerens oplysninger.
-    """
-    indent = "  " * depth
-    lines = []
-
-    if isinstance(value, dict):
-        lines.append(f"{indent}{path or '(rod)'}  dict[{len(value)}]")
-        for key, item in value.items():
-            lines.extend(describe(item, key, show_values, depth + 1))
-
-    elif isinstance(value, list):
-        lines.append(f"{indent}{path}  list[{len(value)}]")
-        # Kun foerste element beskrives — resten har samme facon.
-        if value:
-            lines.extend(describe(value[0], "[0]", show_values, depth + 1))
-
-    else:
-        lines.append(f"{indent}{path}  {_scalar(path, value, show_values)}")
-
-    return lines
-
-
-def _scalar(path: str, value, show_values: bool) -> str:
-    """Beskriver en enkelt vaerdi — som regel uden at afsloere den."""
-    type_name = type(value).__name__
-
-    if value is None:
-        return "null"
-    if isinstance(value, bool):
-        return f"bool = {value}"
-    if isinstance(value, (int, float)):
-        return f"{type_name} = {value}"
-
-    text = str(value)
-    if not text:
-        return f"{type_name} (tom)"
-
-    # Korte vaerdier i felter der ligner valgmuligheder vises, da de afgoer
-    # hvilke Valg-kolonner listerne skal have. Resten maskeres.
-    looks_like_choice = any(hint in path.lower() for hint in SAFE_VALUE_HINTS) and len(text) <= 40
-
-    if show_values or looks_like_choice:
-        return f'{type_name} = "{text}"'
-    return f"{type_name} (laengde {len(text)})"
-
-
 def main() -> None:
     """Henter en indsendelse og udskriver eller gemmer den."""
     args = parse_args()
@@ -204,7 +151,7 @@ def main() -> None:
         print("\n" + "=" * 70)
         print("STRUKTUR" + ("  (med vaerdier — INDEHOLDER PERSONDATA)" if args.show_values else "  (uden vaerdier)"))
         print("=" * 70)
-        for line in describe(submission, show_values=args.show_values):
+        for line in describe_structure(submission, show_values=args.show_values):
             print(line)
         print("=" * 70)
         if not args.show_values:

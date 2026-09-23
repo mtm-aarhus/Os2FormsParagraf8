@@ -118,7 +118,24 @@ kører under IIS, og ikke i robotten.
 - Python 3.11+
 - Adgang til OS2Forms med rollen "OS2Form REST API user" og adgang til §8-blanketten
 
-### Lokalt
+### Kortlægning af blanketten
+
+Feltmapningen kræver at man ved, hvad blanketten faktisk sender. Der er to
+veje, alt efter om man kan få fat i API-nøglen.
+
+**Via OpenOrchestrator — når nøglen ikke må hentes ud.** Robotten kører på
+OO-maskinen og har adgang til credentialet i forvejen. Opret en SINGLE-trigger
+på denne proces med procesargumentet:
+
+```
+struktur
+```
+
+Robotten henter så den nyeste indsendelse og skriver blankettens feltstruktur i
+OO-loggen. Den rører hverken køen eller SharePoint — den læser kun. En bestemt
+indsendelse kan vælges med `struktur uuid=1234abcd-...`.
+
+**Lokalt — når man har nøglen.**
 
 ```sh
 python -m venv venv
@@ -127,15 +144,39 @@ pip install -e ".[dev]"
 copy .env.example .env
 ```
 
-Udfyld `.env` og hent en eksempel-indsendelse:
-
 ```sh
 python scripts/hent_eksempel_submission.py --list
-python scripts/hent_eksempel_submission.py
+python scripts/hent_eksempel_submission.py --struktur
 ```
 
-JSON'en lander i `lokalt/`, som ikke er i versionsstyring — den indeholder
-persondata fra en rigtig borgerindsendelse og må ikke committes.
+Sættes `OpenOrchestratorSQL` og `OpenOrchestratorKey` i `.env`, henter scriptet
+selv nøglen fra credentialet `OS2FormsAPI`, så den ikke skal kopieres ud.
+
+### Persondata i kortlægningen
+
+En indsendelse indeholder borgerens navn, adresse, telefonnummer og
+mailadresse. Til mapningen skal der kun bruges feltnavne, typer og indlejring,
+så begge veje ovenfor udskriver **strukturen uden værdierne**:
+
+```
+data  dict[8]
+  udfylder  str (maskeret, laengde 11)
+  er_udfylder_grundejer_raadgiver_bygherre_eller_andet  str = "Raadgiver"
+  vaelg_dato_for_ansoegning  str (dato YYYY-MM-DD)
+  adresser  list[1]
+    [0]  dict[3]
+      vaelg_adresse  str (maskeret, laengde 30)
+```
+
+Felter hvis navn peger på persondata maskeres altid (`src/struktur.py`,
+`SENSITIVE_HINTS`). Datoer beskrives ved deres format, da det er formatet
+mapningen skal bruge. Spørgsmålsfelter — dem der starter med `er_`, `har_`,
+`oensker_` — vises derimod, fordi svaret er en kategori og netop afgør hvilke
+valgmuligheder SharePoint-kolonnen skal have.
+
+Den udskrift er fri for persondata og kan deles. Den fulde JSON gemmes kun
+lokalt i `lokalt/`, som ikke er i versionsstyring, og må ikke committes eller
+videresendes.
 
 ### I produktion
 
