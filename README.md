@@ -26,38 +26,74 @@ Mangler:
 - **Feltmapningen** (`src/mapper.py`). Blanketten er ændret markant, så de gamle
   feltnavne gælder ikke længere. Kræver en rå JSON-udskrift fra den nuværende
   blanket — se nedenfor.
-- Oprettelse af SharePoint-listerne
-- Constants og credentials i OpenOrchestrator
+- Oprettelse af SharePoint-listerne, og valg af site
+  (`SHAREPOINT_SITE_PATH` i `robot_framework/config.py`)
+- Bekræftelse af blankettens maskinnavn (`WEBFORM_ID`)
+- Webhook-opsætning på blanketten mod PyOrchestrator API'et
+- Triggere i OpenOrchestrator
 - SPFx-dashboardet (separat projekt)
+
+## Beslægtede projekter
+
+| Repo | Hvad vi bruger derfra |
+|---|---|
+| [`Os2FormsToSharepoint`](https://github.com/mtm-aarhus/Os2FormsToSharepoint) | Mønsteret for OS2Forms → SharePoint, credential-navne, og de dokumenterede faldgruber om interne kolonnenavne |
+| [`FlaskOrchestratorAPI`](https://github.com/mtm-aarhus/FlaskOrchestratorAPI) | `POST /api/queue` — webhook-modtageren, der lægger indsendelser i køen |
+| [`aktivt_systemejerskab`](https://github.com/mtm-aarhus/aktivt_systemejerskab) | Kø-framework og SharePoint-certifikatopsætning |
 
 ## Sådan virker den
 
-En kørsel består af to faser:
+Ansøgninger kommer ind ad to veje, og robotten behandler dem ens.
 
-**1. `initialize` fylder køen.** OS2Forms spørges efter indsendelser i
-pollingvinduet (`POLL_WINDOW_DAYS`, standard 14 dage). De UUID'er der ikke
-allerede findes i SharePoint — og ikke allerede ligger i køen — lægges i
-OpenOrchestrator-køen `Paragraf8Ansogninger` med UUID'et som reference.
+**Den hurtige vej — webhook.** Når en borger indsender §8-blanketten, POSTer
+OS2Forms til det eksisterende [PyOrchestrator
+API](https://github.com/mtm-aarhus/FlaskOrchestratorAPI) (`POST /api/queue`),
+som opretter et køelement i OpenOrchestrator. En QueueTrigger starter robotten.
+Der skal ikke bygges nogen modtager — API'et findes og bruges af de øvrige
+MTM-robotter.
 
-**2. Kø-loopet behandler én ansøgning ad gangen.** For hvert køelement hentes
-den fulde indsendelse, den mappes, og der skrives én række i `P8Ansogninger`
-plus rækker i `P8Adresser`, `P8Kontakter` og `P8Vedhaeftninger`.
+Blanketten konfigureres til at sende:
 
-Fejler én ansøgning, markeres netop det køelement som fejlet, og robotten går
-videre til det næste.
+```json
+{
+  "queue_name": "Paragraf8Ansogninger",
+  "reference": "[webform_submission:uuid]",
+  "data": { "application_uuid": "[webform_submission:uuid]", "formular": "paragraf_8_ansoegning" },
+  "created_by": "OS2Forms"
+}
+```
 
-### Hvorfor polling og ikke webhook
+**Sikkerhedsnettet — planlagt polling.** En planlagt trigger kører `initialize`,
+som spørger OS2Forms efter indsendelser i pollingvinduet (`POLL_WINDOW_DAYS`,
+standard 14 dage) og lægger dem i køen, som webhooken ikke har meldt ind.
+Køres robotten fra QueueTriggeren, springes pollingen over via procesargumentet
+`no-poll`.
 
-En OpenOrchestrator-robot starter, arbejder og afslutter på et skema. Den kan
-ikke ligge og lytte efter indgående HTTP-kald, som den gamle Flask-app gjorde.
-Derfor spørger robotten selv OS2Forms via
-`/webform_rest/{webform_id}/submissions`.
+En tabt borgerhenvendelse er dyr, og forsikringen er nærmest gratis:
+dubletfiltreringen sker på `SubmissionUUID`, så de to veje kan melde den samme
+ansøgning ind uden at den oprettes to gange. Robotten logger desuden huller i
+OS2Forms' fortløbende serienumre, da et hul kan betyde en indsendelse der aldrig
+blev listet.
 
-Pollingvinduet er bevidst meget bredere end kørselsintervallet. Indsendelser
-der allerede findes i SharePoint springes over på `SubmissionUUID`, så overlap
-koster ingenting — mens et for smalt vindue ville tabe ansøgninger permanent,
-hvis en kørsel fejlede. Robotten logger desuden huller i OS2Forms' fortløbende
-serienumre, da et hul kan betyde en indsendelse der aldrig blev listet.
+**Behandlingen.** For hvert køelement hentes den fulde indsendelse, den mappes,
+og der skrives én række i `P8Ansogninger` plus rækker i `P8Adresser`,
+`P8Kontakter` og `P8Vedhaeftninger`. Fejler én ansøgning, markeres netop det
+køelement som fejlet, og robotten går videre til det næste.
+
+### Hvorfor robotten ikke selv er en webserver
+
+En OpenOrchestrator-robot starter, arbejder og afslutter. Scheduleren spawner en
+subprocess og venter på at den afslutter, før status opdateres. En webserver
+afslutter aldrig, så triggeren ville gå i RUNNING og blive der — den ville
+aldrig fyre igen. Derfor ligger HTTP-modtagelsen i PyOrchestrator API'et, som
+kører under IIS, og ikke i robotten.
+
+## Triggere i OpenOrchestrator
+
+| Type | Navn | Argument | Formål |
+|---|---|---|---|
+| QueueTrigger | `Paragraf8Ansogninger` | `no-poll` | Starter robotten når webhooken har lagt noget i køen |
+| ScheduledTrigger | fx natligt | *(ingen)* | Sikkerhedsnet — poller OS2Forms for oversete ansøgninger |
 
 ## Kom i gang
 

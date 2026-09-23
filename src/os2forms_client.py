@@ -25,7 +25,11 @@ class OS2FormsClient:
     """Laeseadgang til indsendelser paa én blanket."""
 
     def __init__(self, base_url: str, webform_id: str, api_key: str):
-        self.base_url = base_url.rstrip("/")
+        # Base-URL'en kommer fra credentialet OS2FormsAPI og slutter allerede paa
+        # den del der gaar forud for blankettens maskinnavn, fx
+        # "https://.../webform_rest/". Derfor sikres én afsluttende skraastreg
+        # frem for at fjerne den.
+        self.base_url = base_url.rstrip("/") + "/"
         self.webform_id = webform_id
         self._session = requests.Session()
         self._session.headers.update({"api-key": api_key})
@@ -43,7 +47,7 @@ class OS2FormsClient:
             En liste af indsendelser. Hvert element har som minimum "uuid";
             "serial" er med naar OS2Forms leverer det.
         """
-        url = f"{self.base_url}/webform_rest/{self.webform_id}/submissions"
+        url = f"{self.base_url}{self.webform_id}/submissions"
         params = {"starttime": starttime}
         if endtime:
             params["endtime"] = endtime
@@ -58,10 +62,23 @@ class OS2FormsClient:
         Returnerer raa JSON som den kommer fra OS2Forms — typisk med en "data"-del
         (blankettens felter) og en "entity"-del (metadata som sid, created, completed).
         """
-        url = f"{self.base_url}/webform_rest/{self.webform_id}/submission/{submission_uuid}"
+        url = f"{self.base_url}{self.webform_id}/submission/{submission_uuid}"
         response = self._session.get(url, timeout=TIMEOUT)
         response.raise_for_status()
         return response.json()
+
+
+def extract_submission_uuid(payload: dict[str, Any]) -> Optional[str]:
+    """Traekker det globalt unikke UUID ud af en indsendelse.
+
+    Drupal pakker entity-felter som lister af {"value": ...}, saa UUID'et ligger
+    i payload["entity"]["uuid"][0]["value"] — ikke som et fladt felt.
+    """
+    try:
+        return payload["entity"]["uuid"][0]["value"]
+    except (KeyError, IndexError, TypeError):
+        logger.warning("Kunne ikke finde entity.uuid[0].value i indsendelsen.")
+        return None
 
 
 def _normalize_submission_list(payload: Any) -> list[dict[str, Any]]:
