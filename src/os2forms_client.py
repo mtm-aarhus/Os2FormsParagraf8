@@ -1,0 +1,89 @@
+"""Klient til OS2Forms' REST API.
+
+Dokumentation: https://github.com/OS2Forms/os2forms_rest_api
+
+Relevante endpoints:
+    GET /webform_rest/{webform_id}/submissions            — list indsendelser
+    GET /webform_rest/{webform_id}/submission/{uuid}       — hent én indsendelse
+
+Autentificering sker med headeren `api-key`. Noeglen hoerer til en bruger med
+rollen "OS2Form REST API user", og brugeren skal desuden have adgang til netop
+den blanket der spoerges paa.
+"""
+
+import logging
+from typing import Any, Optional
+
+import requests
+
+logger = logging.getLogger(__name__)
+
+TIMEOUT = 60
+
+
+class OS2FormsClient:
+    """Laeseadgang til indsendelser paa én blanket."""
+
+    def __init__(self, base_url: str, webform_id: str, api_key: str):
+        self.base_url = base_url.rstrip("/")
+        self.webform_id = webform_id
+        self._session = requests.Session()
+        self._session.headers.update({"api-key": api_key})
+
+    # --- Opslag ---
+
+    def list_submissions(self, starttime: str, endtime: Optional[str] = None) -> list[dict[str, Any]]:
+        """Lister indsendelser i et tidsrum.
+
+        Args:
+            starttime: Dato i PHP Date/Time-format, fx "2026-09-01" eller "yesterday".
+            endtime: Valgfri slutdato i samme format.
+
+        Returns:
+            En liste af indsendelser. Hvert element har som minimum "uuid";
+            "serial" er med naar OS2Forms leverer det.
+        """
+        url = f"{self.base_url}/webform_rest/{self.webform_id}/submissions"
+        params = {"starttime": starttime}
+        if endtime:
+            params["endtime"] = endtime
+
+        response = self._session.get(url, params=params, timeout=TIMEOUT)
+        response.raise_for_status()
+        return _normalize_submission_list(response.json())
+
+    def get_submission(self, submission_uuid: str) -> dict[str, Any]:
+        """Henter én indsendelse med alle felter.
+
+        Returnerer raa JSON som den kommer fra OS2Forms — typisk med en "data"-del
+        (blankettens felter) og en "entity"-del (metadata som sid, created, completed).
+        """
+        url = f"{self.base_url}/webform_rest/{self.webform_id}/submission/{submission_uuid}"
+        response = self._session.get(url, timeout=TIMEOUT)
+        response.raise_for_status()
+        return response.json()
+
+
+def _normalize_submission_list(payload: Any) -> list[dict[str, Any]]:
+    """Goer listesvaret til en liste af dicts.
+
+    OS2Forms kan levere listen enten som en JSON-liste eller som et objekt med
+    UUID'et som noegle. Begge former haandteres her, saa resten af koden kun skal
+    kende én facon.
+    """
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)]
+
+    if isinstance(payload, dict):
+        submissions = []
+        for key, value in payload.items():
+            if not isinstance(value, dict):
+                continue
+            # Noeglen er UUID'et naar svaret er et objekt; bevar det hvis
+            # elementet ikke selv baerer et.
+            value.setdefault("uuid", key)
+            submissions.append(value)
+        return submissions
+
+    logger.warning("Uventet svarformat fra /submissions: %s", type(payload).__name__)
+    return []

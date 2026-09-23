@@ -1,9 +1,18 @@
 venv/
+.venv/
 __pycache__/
 *.pyc
 *.log
 *.sqlite3
 lib/
 
-# Visual Studio
+# Visual Studio / VS Code
 .vs/
+.vscode/
+
+# Miljoevariabler — indeholder API-noegler
+.env
+
+# Lokalt hentede indsendelser. Indeholder persondata fra borgerindsendelser
+# og maa under ingen omstaendigheder committes.
+lokalt/
