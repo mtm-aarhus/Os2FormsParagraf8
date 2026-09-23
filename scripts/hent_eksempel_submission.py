@@ -1,26 +1,40 @@
-"""Henter en §8-indsendelse ned fra OS2Forms og gemmer den raa JSON.
+"""Henter en §8-indsendelse fra OS2Forms og beskriver dens struktur.
 
 Formaalet er at skaffe grundlaget for feltmapningen i src/mapper.py. Blanketten
 er aendret markant, saa mapningen skal skrives ud fra en faktisk indsendelse i
 stedet for de gamle feltnavne.
 
-Koeres lokalt — ikke via OpenOrchestrator. API-noeglen laeses fra .env.
+Koeres lokalt — ikke via OpenOrchestrator.
+
+=============================================================================
+PERSONDATA
+=============================================================================
+Den fulde JSON indeholder rigtige persondata fra en borgerindsendelse: navne,
+adresser, telefonnumre, mailadresser. Den gemmes i 'lokalt/', som ikke er i
+versionsstyring, og maa ikke committes, mailes eller indsaettes i en chat.
+
+Til mapningen er der ikke brug for vaerdierne, kun strukturen. Brug derfor
+--struktur, som udskriver feltnavne, typer og indlejring med vaerdierne
+udeladt. Den udskrift er fri for persondata og kan trygt deles.
+=============================================================================
 
 Brug:
-    # List de seneste indsendelser (kun uuid/serial/dato, ingen persondata)
+    # Struktur uden vaerdier — det der skal bruges til mapningen
+    python scripts/hent_eksempel_submission.py --struktur
+
+    # List de seneste indsendelser
     python scripts/hent_eksempel_submission.py --list
 
-    # Hent den nyeste indsendelse i fuld laengde
+    # Hent fuld JSON til lokalt/ (persondata — deles ikke)
     python scripts/hent_eksempel_submission.py
 
-    # Hent en bestemt indsendelse
-    python scripts/hent_eksempel_submission.py --uuid 1234abcd-...
+    # En bestemt indsendelse
+    python scripts/hent_eksempel_submission.py --uuid 1234abcd-... --struktur
 
-    # Gem et andet sted end standardplaceringen
-    python scripts/hent_eksempel_submission.py --output C:\\temp\\eksempel.json
-
-OBS: Den hentede fil indeholder rigtige persondata fra en borgerindsendelse.
-Den gemmes som standard i .gitignore'de 'lokalt/' og maa ikke committes.
+Legitimation hentes i denne raekkefoelge:
+    1. OpenOrchestrator, hvis OpenOrchestratorSQL og OpenOrchestratorKey er sat
+       i .env. Credentialet 'OS2FormsAPI' bruges — samme som robotten bruger.
+    2. Ellers OS2FORMS_BASE_URL og OS2FORMS_API_KEY direkte fra .env.
 """
 
 import argparse
@@ -32,52 +46,135 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Goer src/ importerbar naar scriptet koeres direkte
+# Goer src/ og robot_framework/ importerbare naar scriptet koeres direkte
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from robot_framework import config  # noqa: E402  pylint: disable=wrong-import-position
 from src.os2forms_client import OS2FormsClient  # noqa: E402  pylint: disable=wrong-import-position
 
 DEFAULT_OUTPUT = Path("lokalt") / "eksempel_submission.json"
 
+# Felter hvor selve vaerdien er en type og ikke persondata. De vises i
+# strukturudskriften, fordi de afgoer hvilke Valg-kolonner listerne skal have.
+SAFE_VALUE_HINTS = ("rolle", "type", "status", "vaelg_", "er_", "oensker_", "har_")
+
 
 def parse_args() -> argparse.Namespace:
     """Laeser kommandolinjeargumenter."""
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("--uuid", help="UUID paa en bestemt indsendelse. Udelades: tag den nyeste.")
     parser.add_argument("--list", action="store_true", dest="list_only",
                         help="List kun indsendelser, hent ingen fuld JSON.")
+    parser.add_argument("--struktur", action="store_true",
+                        help="Udskriv feltstruktur uden vaerdier. Fri for persondata.")
+    parser.add_argument("--vis-vaerdier", action="store_true", dest="show_values",
+                        help="Tag vaerdier med i strukturudskriften. Indeholder persondata.")
     parser.add_argument("--days", type=int, default=90,
                         help="Hvor mange dage tilbage der soeges. Standard: 90.")
+    parser.add_argument("--webform-id", default=None,
+                        help=f"Blankettens maskinnavn. Standard: {config.WEBFORM_ID}")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT,
-                        help=f"Hvor JSON'en gemmes. Standard: {DEFAULT_OUTPUT}")
+                        help=f"Hvor den fulde JSON gemmes. Standard: {DEFAULT_OUTPUT}")
     return parser.parse_args()
 
 
-def build_client() -> OS2FormsClient:
-    """Bygger en klient ud fra miljoevariabler i .env."""
+def build_client(webform_id: str) -> OS2FormsClient:
+    """Bygger en klient, helst med legitimation fra OpenOrchestrator."""
     load_dotenv()
 
-    missing = [
-        name for name in ("OS2FORMS_BASE_URL", "OS2FORMS_WEBFORM_ID", "OS2FORMS_API_KEY")
-        if not os.environ.get(name)
-    ]
-    if missing:
-        raise SystemExit(
-            "Mangler i .env: " + ", ".join(missing) + "\n"
-            "Se .env.example for hvad de skal indeholde."
+    oo_conn = os.environ.get("OpenOrchestratorSQL")
+    oo_key = os.environ.get("OpenOrchestratorKey")
+
+    if oo_conn and oo_key:
+        # Importeres foerst her, saa scriptet kan koere paa .env alene uden at
+        # OpenOrchestrator behoever vaere installeret.
+        from OpenOrchestrator.orchestrator_connection.connection import (  # pylint: disable=import-outside-toplevel
+            OrchestratorConnection,
+        )
+        print("Henter legitimation fra OpenOrchestrator...")
+        connection = OrchestratorConnection("hent_eksempel_submission", oo_conn, oo_key, None, None)
+        credential = connection.get_credential(config.OS2FORMS_CREDENTIAL)
+        return OS2FormsClient(
+            base_url=credential.username,
+            webform_id=webform_id,
+            api_key=credential.password,
         )
 
-    return OS2FormsClient(
-        base_url=os.environ["OS2FORMS_BASE_URL"],
-        webform_id=os.environ["OS2FORMS_WEBFORM_ID"],
-        api_key=os.environ["OS2FORMS_API_KEY"],
-    )
+    base_url = os.environ.get("OS2FORMS_BASE_URL")
+    api_key = os.environ.get("OS2FORMS_API_KEY")
+    if not base_url or not api_key:
+        raise SystemExit(
+            "Mangler legitimation.\n\n"
+            "Saet enten OpenOrchestratorSQL og OpenOrchestratorKey i .env "
+            "(saa hentes noeglen fra credentialet 'OS2FormsAPI'),\n"
+            "eller OS2FORMS_BASE_URL og OS2FORMS_API_KEY direkte.\n\n"
+            "Se .env.example."
+        )
+
+    print("Henter legitimation fra .env...")
+    return OS2FormsClient(base_url=base_url, webform_id=webform_id, api_key=api_key)
+
+
+def describe(value, path: str = "", show_values: bool = False, depth: int = 0) -> list[str]:
+    """Beskriver en JSON-struktur som linjer, med vaerdierne udeladt.
+
+    Formaalet er at kunne dele blankettens feltnavne og facon uden at dele
+    borgerens oplysninger.
+    """
+    indent = "  " * depth
+    lines = []
+
+    if isinstance(value, dict):
+        lines.append(f"{indent}{path or '(rod)'}  dict[{len(value)}]")
+        for key, item in value.items():
+            lines.extend(describe(item, key, show_values, depth + 1))
+
+    elif isinstance(value, list):
+        lines.append(f"{indent}{path}  list[{len(value)}]")
+        # Kun foerste element beskrives — resten har samme facon.
+        if value:
+            lines.extend(describe(value[0], "[0]", show_values, depth + 1))
+
+    else:
+        lines.append(f"{indent}{path}  {_scalar(path, value, show_values)}")
+
+    return lines
+
+
+def _scalar(path: str, value, show_values: bool) -> str:
+    """Beskriver en enkelt vaerdi — som regel uden at afsloere den."""
+    type_name = type(value).__name__
+
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return f"bool = {value}"
+    if isinstance(value, (int, float)):
+        return f"{type_name} = {value}"
+
+    text = str(value)
+    if not text:
+        return f"{type_name} (tom)"
+
+    # Korte vaerdier i felter der ligner valgmuligheder vises, da de afgoer
+    # hvilke Valg-kolonner listerne skal have. Resten maskeres.
+    looks_like_choice = any(hint in path.lower() for hint in SAFE_VALUE_HINTS) and len(text) <= 40
+
+    if show_values or looks_like_choice:
+        return f'{type_name} = "{text}"'
+    return f"{type_name} (laengde {len(text)})"
 
 
 def main() -> None:
-    """Henter og gemmer en indsendelse."""
+    """Henter en indsendelse og udskriver eller gemmer den."""
     args = parse_args()
-    client = build_client()
+    webform_id = args.webform_id or config.WEBFORM_ID
+    client = build_client(webform_id)
+
+    print(f"Blanket: {webform_id}\n")
 
     if args.uuid:
         submission_uuid = args.uuid
@@ -91,7 +188,7 @@ def main() -> None:
 
         print(f"Fandt {len(submissions)} indsendelser:")
         for submission in submissions:
-            print(f"  serial={submission.get('serial', '?'):>6}  uuid={submission.get('uuid', '?')}")
+            print(f"  serial={str(submission.get('serial', '?')):>6}  uuid={submission.get('uuid', '?')}")
 
         if args.list_only:
             return
@@ -103,15 +200,21 @@ def main() -> None:
     print(f"\nHenter fuld indsendelse {submission_uuid}...")
     submission = client.get_submission(submission_uuid)
 
+    if args.struktur:
+        print("\n" + "=" * 70)
+        print("STRUKTUR" + ("  (med vaerdier — INDEHOLDER PERSONDATA)" if args.show_values else "  (uden vaerdier)"))
+        print("=" * 70)
+        for line in describe(submission, show_values=args.show_values):
+            print(line)
+        print("=" * 70)
+        if not args.show_values:
+            print("Udskriften ovenfor er fri for persondata og kan deles.")
+        return
+
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(submission, indent=2, ensure_ascii=False), encoding="utf-8")
-
     print(f"Gemt i {args.output}")
-    print("\nTopniveau-noegler:", ", ".join(submission.keys()))
-    if isinstance(submission.get("data"), dict):
-        print(f"\nFelter i 'data' ({len(submission['data'])}):")
-        for field in submission["data"]:
-            print(f"  {field}")
+    print("Filen indeholder persondata — del den ikke. Brug --struktur til mapningen.")
 
 
 if __name__ == "__main__":
