@@ -20,17 +20,25 @@ Færdigt:
 - OS2Forms-klient
 - SharePoint-klient
 - Specifikation af SharePoint-lister (`SHAREPOINT-LISTER.md`)
+- Feltmapningen (`src/mapper.py`), skrevet og testet mod en faktisk
+  testindsendelse fra den nuværende blanket
 
 Mangler:
 
-- **Feltmapningen** (`src/mapper.py`). Blanketten er ændret markant, så de gamle
-  feltnavne gælder ikke længere. Kræver en strukturudskrift fra den nuværende
-  blanket — se nedenfor.
-- Oprettelse af SharePoint-listerne, og valg af site
-  (`SHAREPOINT_SITE_PATH` i `robot_framework/config.py`)
+- Oprettelse af SharePoint-listerne
+- Opslag af vedhæftede filer — blanketten giver kun fil-id'er, ikke navne
+  eller URL'er (se åbent punkt 1 i `SHAREPOINT-LISTER.md`)
 - Webhook-opsætning på blanketten mod PyOrchestrator API'et
 - Triggere i OpenOrchestrator
 - SPFx-dashboardet (separat projekt)
+
+## SharePoint
+
+| | |
+|---|---|
+| Site | `https://aarhuskommune.sharepoint.com/teams/NaturogMiljDashboard` |
+| Frontend-side | [§8-Ansøgninger – Jord og Grundvand](https://aarhuskommune.sharepoint.com/teams/NaturogMiljDashboard/SitePages/%C2%A78-Ans%C3%B8gninger---Jord-og-Grundvand.aspx) |
+| Lister | `P8Ansogninger`, `P8Adresser`, `P8Kontakter`, `P8Vedhaeftninger` |
 
 ## Blanketten
 

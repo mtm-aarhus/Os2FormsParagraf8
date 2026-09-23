@@ -1,6 +1,9 @@
 # §8-ansøgninger — SharePoint-lister (manuel oprettelse)
 
-**Site:** _(udfyldes — se "Åbne punkter" nederst)_
+**Site:** `https://aarhuskommune.sharepoint.com/teams/NaturogMiljDashboard`
+
+Samme site som SPFx-frontenden bygges på. Siden der skal vise dem er
+[§8-Ansøgninger – Jord og Grundvand](https://aarhuskommune.sharepoint.com/teams/NaturogMiljDashboard/SitePages/%C2%A78-Ans%C3%B8gninger---Jord-og-Grundvand.aspx).
 
 Alle lister oprettes som **Brugerdefineret liste** ("Custom List" / Generic List) via
 **Site Contents → Ny → Liste → Tom liste**.
@@ -87,7 +90,7 @@ Hovedlisten — én række pr. indsendt §8-ansøgning.
 | **SubmissionSid** | Tal | `sid` | 0 decimaler. OS2Forms' interne id, bruges til at bygge linket tilbage |
 | **OS2FormsUrl** | Hyperlink eller billede | *(udledt af `sid`)* | Format: **Hyperlink**. Link til indsendelsen i OS2Forms, så sagsbehandleren kan se originalen |
 | **Udfylder** | Enkelt tekstlinje | `udfylder` | Navnet på den der udfyldte blanketten |
-| **IndsendtAf** | Valg | `ansoegning_indsendt_af` | Valgmuligheder: `Grundejer`, `Bygherre`, `Rådgiver`. Se åbent punkt 3 |
+| **IndsendtAf** | Valg | `ansoegning_indsendt_af` | Valgmuligheder: `Grundejer`, `Bygherre`, `Rådgiver`. Der er ingen `Andet` |
 | **AnsogningsDato** | Dato og klokkeslæt | `vaelg_dato_for_ansoegning` | Inkluder klokkeslæt: **Nej**. Kommer som `YYYY-MM-DD` |
 | **Bemaerkninger** | Flere tekstlinjer | `bemaerkninger` | Almindelig tekst (ikke Rich Text) |
 | **ModtagetDato** | Dato og klokkeslæt | `created` | Inkluder klokkeslæt: **Ja**. Kommer som Unix-tidsstempel |
@@ -222,6 +225,9 @@ indeholde udfyldte `_byg`-felter *selvom* flaget er Ja — flaget vinder.
 
 ## Efter oprettelse
 
+- Bekræft at sitets tidszone står til **(UTC+01:00) Bruxelles, København, Madrid, Paris**
+  under Webstedsindstillinger → Regionale indstillinger. Står den forkert, vises
+  ansøgningsdatoer en dag for tidligt
 - Bekræft at alle fire lister findes under **Site Contents**
 - Bekræft at `SubmissionUUID` er indekseret på **alle fire** lister
 - Bekræft at `Ansogning`-lookup-kolonnerne viser værdier fra `P8Ansogninger`
@@ -241,13 +247,13 @@ indeholde udfyldte `_byg`-felter *selvom* flaget er Ja — flaget vinder.
 2. **`navn_kontaktperson_2` mangler i blanketten.** Skal grundejer nr. 2 kunne angive et
    kontaktnavn? Hvis ja, skal feltet tilføjes i OS2Forms — det er ikke noget koden kan
    løse. Indtil da oprettes kontakten uden navn, med firmaet som `Title`.
-3. **Valgmuligheder i `ansoegning_indsendt_af`.** Testindsendelsen viser `Grundejer`. Hvad
-   er de øvrige? `Bygherre` og `Rådgiver` er gættet ud fra de andre felter — er der også
-   `Andet`?
-4. **Sagsgangen.** `Ny` / `Under behandling` / `Afgjort` / `Afvist` er et gæt. Hvad er den
+3. **Sagsgangen.** `Ny` / `Under behandling` / `Afgjort` / `Afvist` er et gæt. Hvad er den
    faktiske proces for en §8-ansøgning?
-5. **Site-URL.** Skal listerne ligge på samme site som master-dashboardet
-   (`tea-teamsite10955`), eller på et selvstændigt site for §8-sagsbehandling?
-6. **Listenavn-præfiks.** `P8` er valgt som en kort, æ/ø/å-fri parallel til
+4. **Listenavn-præfiks.** `P8` er valgt som en kort, æ/ø/å-fri parallel til
    master-dashboardets `MTM`. Skal besluttes før oprettelse — omdøbning ændrer ikke det
    interne navn.
+
+## Afklaret
+
+- **Site:** `/teams/NaturogMiljDashboard` — samme som SPFx-frontenden.
+- **`ansoegning_indsendt_af`:** kun `Grundejer`, `Bygherre` og `Rådgiver`. Ingen `Andet`.
