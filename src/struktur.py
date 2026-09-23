@@ -100,29 +100,44 @@ def describe_scalar(path: str, value: Any, show_values: bool = False) -> str:
             return f"{type_name} (maskeret)"
         return f"{type_name} = {value}"
 
-    text = str(value)
+    return _describe_text(path, str(value), type_name, show_values)
+
+
+def _describe_text(path: str, text: str, type_name: str, show_values: bool) -> str:
+    """Beskriver en tekstvaerdi."""
     if not text:
         return f"{type_name} (tom)"
-
-    if show_values:
-        return f'{type_name} = "{text}"'
 
     # Kendte formater beskrives frem for at vises. Det er formatet mapningen
     # skal bruge — om datoen er "2026-09-01" eller et ISO-tidsstempel afgoer
     # hvordan den skal konverteres til UTC.
+    known_format = _detect_format(text)
+    if known_format and not show_values:
+        return f"{type_name} ({known_format})"
+
+    # Spoergsmaalsfelter vises selvom navnet indeholder et spaerret ord — svaret
+    # er en kategori, ikke en oplysning om borgeren. Derfor gaar de forud for
+    # spaerrelisten nedenfor.
+    short = len(text) <= MAX_CHOICE_LENGTH
+    reveal = show_values or (short and (is_question(path) or _is_category(path)))
+    if reveal:
+        return f'{type_name} = "{text}"'
+
+    masked = " (maskeret," if is_sensitive(path) else " ("
+    return f"{type_name}{masked} laengde {len(text)})"
+
+
+def _detect_format(text: str) -> str | None:
+    """Genkender kendte vaerdiformater, saa de kan beskrives frem for vises."""
     for pattern, label in FORMATS:
         if pattern.match(text):
-            return f"{type_name} ({label})"
+            return label
+    return None
 
-    # Spoergsmaalsfelter vises selvom navnet indeholder et spaerret ord —
-    # svaret er en kategori, ikke en oplysning om borgeren.
-    if is_question(path) and len(text) <= MAX_CHOICE_LENGTH:
-        return f'{type_name} = "{text}"'
 
-    if is_sensitive(path):
-        return f"{type_name} (maskeret, laengde {len(text)})"
-
-    if any(hint in path.lower() for hint in SAFE_VALUE_HINTS) and len(text) <= MAX_CHOICE_LENGTH:
-        return f'{type_name} = "{text}"'
-
-    return f"{type_name} (laengde {len(text)})"
+def _is_category(path: str) -> bool:
+    """Afgoer om feltet baerer en kategori, der ikke er persondata."""
+    return (
+        any(hint in path.lower() for hint in SAFE_VALUE_HINTS)
+        and not is_sensitive(path)
+    )

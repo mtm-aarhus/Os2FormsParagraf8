@@ -92,7 +92,13 @@ def build_client(webform_id: str) -> OS2FormsClient:
             OrchestratorConnection,
         )
         print("Henter legitimation fra OpenOrchestrator...")
-        connection = OrchestratorConnection("hent_eksempel_submission", oo_conn, oo_key, None, None)
+        # Signaturen er (process_name, connection_string, crypto_key,
+        # process_arguments, trigger_id, job_id) — alle seks er paakraevede.
+        # Bemaerk at sandbox.py i Os2FormsToSharepoint kun sender fem og derfor
+        # fejler mod den nuvaerende OpenOrchestrator.
+        connection = OrchestratorConnection(
+            "hent_eksempel_submission", oo_conn, oo_key, None, None, None
+        )
         credential = connection.get_credential(config.OS2FORMS_CREDENTIAL)
         return OS2FormsClient(
             base_url=credential.username,
