@@ -20,6 +20,10 @@ dependencies = [
     "Office365-REST-Python-Client == 2.5.13",
     "requests == 2.32.3",
     "python-dotenv == 1.0.1",
+    # Windows har ingen systemtidszonedatabase, saa zoneinfo kan ikke slaa
+    # Europe/Copenhagen op uden denne. Uden den fejler datokonverteringen i
+    # src/datoer.py med ZoneInfoNotFoundError — i drift, ikke ved import.
+    "tzdata",
 ]
 
 [project.optional-dependencies]

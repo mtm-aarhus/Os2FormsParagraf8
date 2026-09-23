@@ -4,18 +4,15 @@ Kolonnenavne og listestruktur er beskrevet i SHAREPOINT-LISTER.md.
 """
 
 import logging
-from datetime import datetime
 from typing import Any, Optional
 from urllib.parse import urlparse
-from zoneinfo import ZoneInfo
 
 from office365.sharepoint.client_context import ClientContext
 
 from robot_framework import config
+from src.datoer import local_to_sharepoint_utc, unix_to_sharepoint_utc  # noqa: F401  (genudstilles)
 
 logger = logging.getLogger(__name__)
-
-COPENHAGEN_TZ = ZoneInfo("Europe/Copenhagen")
 
 UUID_FIELD = "SubmissionUUID"
 LOOKUP_FIELD = "AnsogningId"  # Lookup-kolonner saettes med Id-suffiks via REST
@@ -33,21 +30,6 @@ def build_context(site_url: str, tenant: str, client_id: str, thumbprint: str, c
         thumbprint=thumbprint,
         cert_path=cert_path,
     )
-
-
-def local_to_sharepoint_utc(date_str: str, time_str: str = "00:00:00") -> str:
-    """Konverterer dansk lokaltid til den UTC-streng SharePoint forventer.
-
-    SharePoint gemmer DateTime-felter internt i UTC. Skriver man en dansk dato
-    uden tidszone, forskydes den ved visning — typisk en dag tilbage, fordi
-    midnat dansk tid er den foregaaende dag i UTC. Derfor skal alle datoer fra
-    blanketten igennem denne konvertering, inklusive dem uden klokkeslaet.
-
-    Haandterer sommer- og vintertid via zoneinfo.
-    """
-    naive_dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
-    local_dt = naive_dt.replace(tzinfo=COPENHAGEN_TZ)
-    return local_dt.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 class SharePointClient:
