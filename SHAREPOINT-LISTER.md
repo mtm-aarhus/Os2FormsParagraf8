@@ -5,9 +5,10 @@
 Alle lister oprettes som **Brugerdefineret liste** ("Custom List" / Generic List) via
 **Site Contents → Ny → Liste → Tom liste**.
 
-Kolonnenavnet du taster ind bliver automatisk til det interne navn som både robotten og
-SPFx-dashboardet bruger — derfor skal det staves **præcis** som vist (ingen mellemrum,
-ingen æ/ø/å).
+Kolonnenavnet du taster ind bestemmer det **interne navn**, som både robotten og
+SPFx-dashboardet skriver til — men det bliver ikke nødvendigvis det samme. Derfor skal
+navnene staves **præcis** som vist. Læs afsnittet om interne kolonnenavne nedenfor, før
+du opretter noget.
 
 ---
 
@@ -47,6 +48,42 @@ SQL-model:
 - **`SubmissionUUID` er idempotensnøglen.** Robotten henter alle eksisterende UUID'er én
   gang pr. kørsel og springer dem over. Derfor kan en kørsel gentages uden at skabe
   dubletter.
+
+---
+
+## Interne kolonnenavne — læs dette først
+
+Det navn du taster ind er kolonnens **visningsnavn**. SharePoint udleder et **internt
+navn** af det ved oprettelsen, og det er det interne navn koden skriver til. De to falder
+fra hinanden på tre måder, som alle har kostet tid i MTM's øvrige robotter:
+
+1. **Specialtegn kodes om.** Bindestreg bliver til `_x002d_`, `ø` til `_x00f8_`, mellemrum
+   til `_x0020_`. Derfor hedder kolonnen der vises som "Az-ident" internt
+   `Az_x002d_ident`.
+2. **Navnet afkortes ved 32 tegn.** "Organisatorisk enhed over medarbejder" blev internt
+   til `Organisatoriskenhedovermedarbejd` — afhugget midt i et ord, men korrekt.
+3. **Omdøbning ændrer kun visningsnavnet.** Det interne navn er låst fra oprettelsen. En
+   kolonne der engang hed noget forkert, beholder det forkerte interne navn for altid.
+
+Værst er den fjerde: **to kolonner kan have samme visningsnavn.** I MTM's Altinget-liste
+findes `Magistratsafdeling`, `Magistratsafdeling0` og `Magistratsafdeling1`, som alle
+vises som "Magistratsafdeling". Skriver robotten til den forkerte, **lykkes kaldet uden
+fejl** — værdien lander bare i en kolonne visningen ikke viser. Den slags fejl er tavs og
+svær at finde.
+
+**Derfor:** navnene i denne specifikation er med vilje korte, rene ASCII-navne uden
+mellemrum, bindestreger eller æ/ø/å, og alle under 32 tegn. Taster du dem præcis som vist,
+bliver det interne navn identisk med visningsnavnet, og ingen af fælderne udløses.
+
+Bekræft det alligevel efter oprettelsen:
+
+```python
+sharepoint.get_internal_column_names("P8Ansogninger")
+```
+
+Metoden ligger i `src/sharepoint_client.py` og udskriver visningsnavn → internt navn for
+alle skrivbare kolonner. Kør den, før mapningen tages i brug, og igen hvis en kolonne
+senere omdøbes.
 
 ---
 
@@ -90,6 +127,13 @@ Hovedlisten — én række pr. indsendt §8-ansøgning. Det er denne liste dashb
 
 > `Oprettet`/`Created` og `Ændret`/`Modified` findes også automatisk. Bemærk at `Oprettet`
 > er *robottens* skrivetidspunkt, ikke ansøgerens — brug `ModtagetDato` i dashboardet.
+
+> **Datoer gemmes i UTC.** SharePoint lagrer alle DateTime-felter i UTC. Skriver man en
+> dansk dato uden tidszone, forskydes den ved visning — typisk en dag tilbage, fordi
+> midnat dansk tid er den foregående dag i UTC. Robotten sender derfor alle datoer
+> gennem `local_to_sharepoint_utc()` i `src/sharepoint_client.py`. Det gælder også
+> `AnsogningsDato`, selvom den ikke har noget klokkeslæt — det er netop dér fejlen er
+> nemmest at overse.
 
 **Indeksér `SubmissionUUID`:** Listeindstillinger → Indekserede kolonner → Opret nyt
 indeks. Uden det bliver robottens dubletopslag langsomt når listen vokser forbi et par

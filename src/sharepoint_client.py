@@ -4,14 +4,18 @@ Kolonnenavne og listestruktur er beskrevet i SHAREPOINT-LISTER.md.
 """
 
 import logging
+from datetime import datetime
 from typing import Any, Optional
 from urllib.parse import urlparse
+from zoneinfo import ZoneInfo
 
 from office365.sharepoint.client_context import ClientContext
 
 from robot_framework import config
 
 logger = logging.getLogger(__name__)
+
+COPENHAGEN_TZ = ZoneInfo("Europe/Copenhagen")
 
 UUID_FIELD = "SubmissionUUID"
 LOOKUP_FIELD = "AnsogningId"  # Lookup-kolonner saettes med Id-suffiks via REST
@@ -29,6 +33,21 @@ def build_context(site_url: str, tenant: str, client_id: str, thumbprint: str, c
         thumbprint=thumbprint,
         cert_path=cert_path,
     )
+
+
+def local_to_sharepoint_utc(date_str: str, time_str: str = "00:00:00") -> str:
+    """Konverterer dansk lokaltid til den UTC-streng SharePoint forventer.
+
+    SharePoint gemmer DateTime-felter internt i UTC. Skriver man en dansk dato
+    uden tidszone, forskydes den ved visning — typisk en dag tilbage, fordi
+    midnat dansk tid er den foregaaende dag i UTC. Derfor skal alle datoer fra
+    blanketten igennem denne konvertering, inklusive dem uden klokkeslaet.
+
+    Haandterer sommer- og vintertid via zoneinfo.
+    """
+    naive_dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
+    local_dt = naive_dt.replace(tzinfo=COPENHAGEN_TZ)
+    return local_dt.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 class SharePointClient:
@@ -96,6 +115,33 @@ class SharePointClient:
     def create_vedhaeftning(self, ansogning_id: int, submission_uuid: str, vedhaeftning: dict[str, Any]) -> None:
         """Opretter én vedhaeftningsraekke knyttet til en ansoegning."""
         self._create_child(config.LIST_VEDHAEFTNINGER, ansogning_id, submission_uuid, vedhaeftning)
+
+    def get_internal_column_names(self, list_title: str) -> dict[str, str]:
+        """Returnerer {visningsnavn: internt navn} for skrivbare kolonner.
+
+        SharePoint koder kolonnenavne om ved oprettelsen — bindestreg bliver til
+        _x002d_, oe bliver til _x00f8_, og navnet afkortes ved 32 tegn. Det
+        interne navn er derfor sjaeldent det man tastede ind, og det er det
+        interne navn der skal skrives til.
+
+        Vaerre endnu: to kolonner kan have samme visningsnavn men forskellige
+        interne navne (Felt, Felt0, Felt1). Skriver man til den forkerte,
+        lykkes kaldet uden fejl, men vaerdien lander et sted visningen ikke
+        viser. Brug denne metode til at bekraefte mapningen foer den tages i
+        brug — og igen hvis en kolonne senere omdoebes.
+        """
+        fields = (
+            self._ctx.web.lists.get_by_title(list_title)
+            .fields.get()
+            .execute_query()
+        )
+        result = {}
+        for field in fields:
+            props = field.properties
+            if props.get("Hidden") or props.get("ReadOnlyField"):
+                continue
+            result[props.get("Title")] = props.get("InternalName")
+        return result
 
     def _create_child(self, list_name: str, ansogning_id: int, submission_uuid: str, values: dict[str, Any]) -> None:
         """Opretter en raekke i en af detaljelisterne.

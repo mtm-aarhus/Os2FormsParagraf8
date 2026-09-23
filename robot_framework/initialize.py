@@ -1,8 +1,15 @@
 """This module defines any initial processes to run when the robot starts.
 
-For denne robot er det her koeen fyldes: OS2Forms spoerges efter indsendelser
-i pollingvinduet, og dem der ikke allerede ligger i SharePoint laegges i koeen.
-Selve behandlingen sker i process.py, ét koeelement ad gangen.
+Robotten koeres fra to slags triggere:
+
+- En QueueTrigger, naar PyOrchestrator-API'et har lagt en ansoegning i koeen
+  efter en indsendelse i OS2Forms. Her er der intet at polle — elementet ligger
+  der allerede, og robotten skal bare i gang.
+- En planlagt trigger som sikkerhedsnet. Her polles OS2Forms for alt hvad
+  webhooken maatte have tabt, og de manglende ansoegninger laegges i koeen.
+
+Pollingen springes over naar procesargumentet indeholder "no-poll". Standard er
+at polle, saa en forkert opsat trigger fejler til den sikre side.
 """
 
 from datetime import datetime, timedelta
@@ -18,6 +25,24 @@ def initialize(orchestrator_connection: OrchestratorConnection) -> None:
     """Do all custom startup initializations of the robot."""
     orchestrator_connection.log_trace("Initializing.")
 
+    if not _should_poll(orchestrator_connection):
+        orchestrator_connection.log_info("Springer polling over (no-poll) — koersel er udloest af koeen.")
+        return
+
+    fill_queue_from_os2forms(orchestrator_connection)
+
+
+def _should_poll(orchestrator_connection: OrchestratorConnection) -> bool:
+    """Afgoer om denne koersel skal polle OS2Forms."""
+    arguments = getattr(orchestrator_connection, "process_arguments", None) or ""
+    return "no-poll" not in str(arguments).lower()
+
+
+def fill_queue_from_os2forms(orchestrator_connection: OrchestratorConnection) -> None:
+    """Poller OS2Forms og laegger ubehandlede ansoegninger i koeen.
+
+    Sikkerhedsnet for de indsendelser webhooken ikke naaede at melde ind.
+    """
     os2forms = build_os2forms_client(orchestrator_connection)
     sharepoint = build_sharepoint_client(orchestrator_connection)
 
@@ -44,8 +69,9 @@ def initialize(orchestrator_connection: OrchestratorConnection) -> None:
         orchestrator_connection.log_info("Ingen nye ansoegninger at laegge i koeen.")
         return
 
-    # Koeen kan allerede indeholde elementer fra en tidligere koersel der ikke naaede
-    # at blive faerdig. Referencen er UUID'et, saa de kan filtreres fra her.
+    # Koeen kan allerede indeholde elementer — enten fra webhooken, eller fra en
+    # tidligere koersel der ikke naaede at blive faerdig. Referencen er UUID'et,
+    # saa de kan filtreres fra her.
     queued = _references_already_in_queue(new_uuids, orchestrator_connection)
     to_enqueue = [uuid for uuid in new_uuids if uuid not in queued]
 
@@ -55,29 +81,42 @@ def initialize(orchestrator_connection: OrchestratorConnection) -> None:
         )
         return
 
+    # Samme dataform som webhooken laegger ind, saa process.py kun skal kende én.
     orchestrator_connection.bulk_create_queue_elements(
         config.QUEUE_NAME,
         references=tuple(to_enqueue),
+        data=tuple(
+            {"application_uuid": uuid, "formular": config.WEBFORM_ID}
+            for uuid in to_enqueue
+        ),
+        created_by="Sikkerhedsnet-polling",
     )
-    orchestrator_connection.log_info(f"Lagde {len(to_enqueue)} nye ansoegninger i koeen.")
+    orchestrator_connection.log_info(
+        f"Lagde {len(to_enqueue)} ansoegninger i koeen som webhooken ikke havde meldt ind."
+    )
 
 
 def build_os2forms_client(orchestrator_connection: OrchestratorConnection) -> OS2FormsClient:
-    """Bygger en OS2Forms-klient ud fra credential og constants i OpenOrchestrator."""
-    api_key = orchestrator_connection.get_credential(config.OS2FORMS_CREDENTIAL).password
-    base_url = orchestrator_connection.get_constant(config.OS2FORMS_BASE_URL_CONSTANT).value
-    webform_id = orchestrator_connection.get_constant(config.OS2FORMS_WEBFORM_ID_CONSTANT).value
-    return OS2FormsClient(base_url=base_url, webform_id=webform_id, api_key=api_key)
+    """Bygger en OS2Forms-klient ud fra credentialet i OpenOrchestrator.
+
+    Credentialet OS2FormsAPI baerer base-URL'en i username og noeglen i password.
+    """
+    credential = orchestrator_connection.get_credential(config.OS2FORMS_CREDENTIAL)
+    return OS2FormsClient(
+        base_url=credential.username,
+        webform_id=config.WEBFORM_ID,
+        api_key=credential.password,
+    )
 
 
 def build_sharepoint_client(orchestrator_connection: OrchestratorConnection) -> SharePointClient:
     """Bygger en SharePoint-klient med certifikat-auth ud fra OpenOrchestrator."""
     api_cred = orchestrator_connection.get_credential(config.SHAREPOINT_API_CREDENTIAL)
     cert_cred = orchestrator_connection.get_credential(config.SHAREPOINT_CERT_CREDENTIAL)
-    site_url = orchestrator_connection.get_constant(config.SHAREPOINT_URL_CONSTANT).value
+    base_url = orchestrator_connection.get_constant(config.SHAREPOINT_BASE_CONSTANT).value
 
     ctx = build_context(
-        site_url=site_url,
+        site_url=f"{base_url.rstrip('/')}{config.SHAREPOINT_SITE_PATH}",
         tenant=api_cred.username,
         client_id=api_cred.password,
         thumbprint=cert_cred.username,
