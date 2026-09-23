@@ -68,6 +68,26 @@ class OS2FormsClient:
         return response.json()
 
 
+def newest(submissions: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
+    """Finder den nyeste indsendelse i en liste.
+
+    Vaelger paa hoejeste serienummer, ikke paa raekkefoelgen i svaret — OS2Forms
+    lover ingen sortering, og efter en blanketaendring er det afgoerende at
+    ramme den nyeste og ikke en gammel med den tidligere feltstruktur.
+
+    Falder tilbage til sidste element hvis ingen har et brugbart serienummer.
+    """
+    if not submissions:
+        return None
+
+    with_serial = [s for s in submissions if str(s.get("serial", "")).isdigit()]
+    if with_serial:
+        return max(with_serial, key=lambda s: int(s["serial"]))
+
+    logger.warning("Ingen indsendelser har serienummer — vaelger sidste element i svaret.")
+    return submissions[-1]
+
+
 def extract_submission_uuid(payload: dict[str, Any]) -> Optional[str]:
     """Traekker det globalt unikke UUID ud af en indsendelse.
 

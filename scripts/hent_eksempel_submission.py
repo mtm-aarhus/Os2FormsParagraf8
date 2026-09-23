@@ -50,7 +50,7 @@ from dotenv import load_dotenv
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from robot_framework import config  # noqa: E402  pylint: disable=wrong-import-position
-from src.os2forms_client import OS2FormsClient  # noqa: E402  pylint: disable=wrong-import-position
+from src.os2forms_client import OS2FormsClient, newest  # noqa: E402  pylint: disable=wrong-import-position
 from src.struktur import describe_structure  # noqa: E402  pylint: disable=wrong-import-position
 
 DEFAULT_OUTPUT = Path("lokalt") / "eksempel_submission.json"
@@ -140,15 +140,24 @@ def main() -> None:
             raise SystemExit(f"Ingen indsendelser fundet de seneste {args.days} dage.")
 
         print(f"Fandt {len(submissions)} indsendelser:")
-        for submission in submissions:
-            print(f"  serial={str(submission.get('serial', '?')):>6}  uuid={submission.get('uuid', '?')}")
+        for submission in sorted(
+            submissions,
+            key=lambda s: int(s["serial"]) if str(s.get("serial", "")).isdigit() else -1,
+        ):
+            print(
+                f"  serial={str(submission.get('serial', '?')):>6}  "
+                f"created={submission.get('created', '?')}  "
+                f"uuid={submission.get('uuid', '?')}"
+            )
 
         if args.list_only:
             return
 
-        submission_uuid = submissions[-1].get("uuid")
+        chosen = newest(submissions)
+        submission_uuid = chosen.get("uuid") if chosen else None
         if not submission_uuid:
             raise SystemExit("Den nyeste indsendelse har intet uuid — angiv et med --uuid.")
+        print(f"\nValgte den nyeste: serial={chosen.get('serial', '?')}")
 
     print(f"\nHenter fuld indsendelse {submission_uuid}...")
     submission = client.get_submission(submission_uuid)
