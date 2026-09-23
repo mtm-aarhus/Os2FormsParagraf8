@@ -10,7 +10,6 @@ from urllib.parse import urlparse
 from office365.sharepoint.client_context import ClientContext
 
 from robot_framework import config
-from src.datoer import local_to_sharepoint_utc, unix_to_sharepoint_utc  # noqa: F401  (genudstilles)
 
 logger = logging.getLogger(__name__)
 
