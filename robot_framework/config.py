@@ -24,7 +24,12 @@ OS2FORMS_CREDENTIAL = "OS2FormsAPI"
 
 # Blankettens maskinnavn. Indgaar i URL'en som
 #   {base_url}{webform_id}/submission/{uuid}
-WEBFORM_ID = "paragraf_8_ansoegning"
+#
+# Blanketten hedder "Ansoegning om §8-tilladelse efter jordforureningsloven" og
+# ligger paa selvbetjening.aarhuskommune.dk. Navnet er praecis 32 tegn, fordi
+# Drupal afkorter maskinnavne dér — "_beb" er altsaa en afhugget rest og ikke
+# en tastefejl.
+WEBFORM_ID = "ansoegning_om_ss8_tilladelse_beb"
 
 # Hvor langt tilbage sikkerhedsnets-koerslen henter. Vinduet er bevidst meget
 # bredere end koerselsintervallet: ansoegninger der allerede findes i SharePoint
