@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=65.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "robot_framework"
+version = "0.0.1"
+authors = [
+  { name="Aarhus Kommune, Teknik og Miljø" },
+]
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: Microsoft :: Windows",
+]
+dependencies = [
+    "OpenOrchestrator == 3.*",
+    "Pillow == 11.*",
+    "Office365-REST-Python-Client == 2.5.13",
+    "requests == 2.32.3",
+    "python-dotenv == 1.0.1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pylint",
+  "flake8"
+]
