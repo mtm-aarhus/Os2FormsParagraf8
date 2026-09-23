@@ -39,9 +39,13 @@ SQL-model:
   filtrerer og sorterer. Adresser, kontakter og vedhæftninger ligger i hver sin liste og
   hentes kun når en enkelt ansøgning åbnes.
 - **Denormaliserede felter på hovedlisten.** `AntalAdresser`, `AdresserTekst`,
-  `PrimaerGrundejer` m.fl. vedligeholdes af robotten, så oversigten kan renderes med
+  `Grundejere` m.fl. vedligeholdes af robotten, så oversigten kan renderes med
   ét kald i stedet for et opslag pr. række. Samme mønster som `AntalReaktioner` /
   `AntalKommentarer` i master-dashboardet.
+- **Intet felt antager ét af noget.** En ansøgning kan have ubegrænset mange adresser og
+  op til to ligestillede grundejere. Derfor er der ingen `PrimaerAdresse` eller
+  `PrimaerGrundejer` — de denormaliserede felter er flerlinjede opsummeringer, og
+  detaljelisterne er sandheden.
 - **`SubmissionUUID` på alle fire lister.** Detaljelisterne har både en Lookup til
   ansøgningen (til dashboardet) *og* det rå UUID som tekst (så robotten kan slå op og
   rydde op uden først at skulle oversætte til et list-item-ID).
@@ -117,13 +121,13 @@ Hovedlisten — én række pr. indsendt §8-ansøgning. Det er denne liste dashb
 | **AntalAdresser** | Tal | 0 decimaler, standard 0. Denormaliseret — vedligeholdes af robotten |
 | **AntalKontakter** | Tal | 0 decimaler, standard 0. Denormaliseret |
 | **AntalVedhaeftninger** | Tal | 0 decimaler, standard 0. Denormaliseret |
-| **AdresserTekst** | Flere tekstlinjer | Alle ansøgningens adresser samlet, én pr. linje. Gør fritekstsøgning i dashboardet mulig uden at joine `P8Adresser` |
-| **PrimaerGrundejer** | Enkelt tekstlinje | Navnet på grundejeren, denormaliseret så det kan vises som kolonne i oversigten |
+| **AdresserTekst** | Flere tekstlinjer | Alle ansøgningens adresser samlet, én pr. linje. Gør fritekstsøgning i dashboardet mulig uden at joine `P8Adresser`. Antallet er ubegrænset, så feltet kan blive langt — det er en oversigt, ikke et display-felt |
+| **Grundejere** | Flere tekstlinjer | Grundejernes navne, ét pr. linje. Der kan være to ligestillede ejere, så feltet er bevidst flerlinjet og hedder ikke noget med "primær" |
 | **SamletPdfUrl** | Hyperlink eller billede | Format: **Hyperlink**. Link til den samlede ansøgnings-PDF fra OS2Forms. Kan stå tom |
 
 > `Title` findes automatisk — opret den ikke selv. Robotten sætter den til ansøgningens
-> primære adresse, og falder tilbage til `§8 – <SubmissionSerial>` hvis ansøgningen ikke
-> har nogen adresse.
+> første adresse, med `(+N flere)` bagefter hvis der er flere, og falder tilbage til
+> `§8 – <SubmissionSerial>` hvis ansøgningen ikke har nogen adresse.
 
 > `Oprettet`/`Created` og `Ændret`/`Modified` findes også automatisk. Bemærk at `Oprettet`
 > er *robottens* skrivetidspunkt, ikke ansøgerens — brug `ModtagetDato` i dashboardet.
@@ -143,7 +147,17 @@ tusind rækker.
 
 ## 2. P8Adresser
 
-Én række pr. adresse på en ansøgning. En ansøgning kan have flere.
+Én række pr. adresse på en ansøgning. **Antallet er ubegrænset** — ansøger kan tilføje
+så mange ejendomme til projektet som ønsket. Det er grunden til at adresser ligger i en
+egen liste frem for i felter på ansøgningen.
+
+To konsekvenser af det:
+
+- Denne liste vokser hurtigere end `P8Ansogninger`. `SubmissionUUID` **skal** indekseres,
+  ellers rammer man SharePoints grænse på 5.000 elementer pr. visning, og opslag begynder
+  at fejle frem for bare at blive langsomme.
+- Dashboardet bør hente adresser for én ansøgning ad gangen, ikke for hele oversigten.
+  `AdresserTekst` på hovedlisten findes netop for at kunne vise og søge uden at joine.
 
 | Kolonnenavn (præcis stavning!) | Type | Indstillinger |
 |---|---|---|
@@ -159,8 +173,13 @@ tusind rækker.
 
 ## 3. P8Kontakter
 
-Én række pr. kontaktperson. En ansøgning har typisk 1-3: udfylderen selv, grundejeren
-hvis udfylderen er en anden, og en eventuel ekstern rådgiver.
+Én række pr. kontaktperson: udfylderen selv, grundejeren eller grundejerne, og en
+eventuel ekstern rådgiver.
+
+**Der kan være to grundejere, men ikke altid.** Derfor er `KontaktType` ikke unik — der
+kan optræde flere rækker med `Grundejer` på samme ansøgning. Dashboardet må ikke antage
+én ejer og lave opslag på "den første"; det skal hente alle rækker af typen og vise dem
+som en gruppe.
 
 | Kolonnenavn (præcis stavning!) | Type | Indstillinger |
 |---|---|---|
