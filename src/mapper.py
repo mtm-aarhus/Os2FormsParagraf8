@@ -107,10 +107,10 @@ def _map_ansogning(submission: dict, data: dict, adresser: list[dict],
         "FlereGrundejere": _is_yes(data.get("er_der_flere_grundejere")),
         "BygherreSammeSomGrundejer": _is_yes(data.get("er_bygherre_den_samme_som_grundejer")),
 
-        # Sagsbehandlerens felter. Robotten saetter dem kun her ved oprettelsen
-        # og roerer dem aldrig igen.
+        # Sagsbehandlerens felt. Robotten saetter det kun her ved oprettelsen og
+        # roerer det aldrig igen — hverken Status, AfventerAarsag eller Ansvarlig
+        # skrives ved en genkoersel, saa sagsbehandlingen kan ikke overskrives.
         "Status": "Ny",
-        "AfgorelseSkrevet": False,
 
         "AntalAdresser": len(adresser),
         "AntalKontakter": len(kontakter),
