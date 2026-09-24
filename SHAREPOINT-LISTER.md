@@ -1,3 +1,15 @@
+> # ⚠️ Forældet — brug ikke denne
+>
+> Listespecifikationen er flyttet til **Jordportalen**, SPFx-frontenden, som nu definerer
+> størstedelen af skemaet: status, ansvarlig, kommentarer, noter, opgaver, dokumenter og
+> links. Dette dokument beskriver kun de fire lister robotten selv skriver til, og mangler
+> de fem nye — samt ændringerne til `P8Ansogninger` (`Ansvarlig`, `AfventerAarsag`, og
+> fjernelsen af `AfgorelseSkrevet`).
+>
+> **Den gældende specifikation ligger i `jordportalen/SHAREPOINT-LISTER.md`.**
+>
+> Filen her slettes og erstattes af et link, når jordportalens repo er oprettet.
+
 # §8-ansøgninger — SharePoint-lister (manuel oprettelse)
 
 **Site:** `https://aarhuskommune.sharepoint.com/teams/NaturogMiljDashboard`
