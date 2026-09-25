@@ -58,6 +58,15 @@ def main() -> None:
     requested_uuid = match.group(1) if match else None
     show_values = "vis-vaerdier" in arguments.lower()
 
+    if show_values and not requested_uuid:
+        orchestrator_connection.log_error(
+            "vis-vaerdier kraever et eksplicit 'uuid=...' i procesargumentet. "
+            "Uden det ville robotten vaelge den nyeste indsendelse — en rigtig "
+            "borgers ansoegning — og skrive alle dens vaerdier i den permanente "
+            "OO-log. Angiv fx: struktur vis-vaerdier uuid=<testindsendelsens-uuid>."
+        )
+        return
+
     log_submission_structure(orchestrator_connection, requested_uuid, show_values)
 
 

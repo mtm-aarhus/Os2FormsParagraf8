@@ -9,26 +9,40 @@ udskriver netop det, saa kortlaegningen kan deles uden at persondata foelger med
 import re
 from typing import Any
 
-# Feltnavne der ALTID maskeres. Vinder over SAFE_VALUE_HINTS nedenfor, saa et
-# felt som "vaelg_adresse" maskeres selvom det starter med "vaelg_".
+# Feltnavne der ALTID maskeres. Vinder over SAFE_VALUE_HINTS og ALLOWED_FIELDS
+# nedenfor, saa et felt som "vaelg_adresse" maskeres selvom det starter med
+# "vaelg_".
 SENSITIVE_HINTS = (
-    "adresse", "addr", "vej", "by", "postnr", "postal", "zip",
+    "adresse", "addr", "vej", "by", "postnr", "postnummer", "postal", "zip",
     "navn", "name", "udfylder", "kontakt", "person", "ejer",
-    "mail", "email", "tlf", "telefon", "phone", "mobil",
-    "cpr", "cvr", "matr", "mat", "lokalitet", "ejendom", "grund",
+    "mail", "email", "tlf", "telefon", "telefonnr", "phone", "mobil",
+    "cpr", "cvr", "matr", "matrikel", "mat", "lokalitet", "ejendom", "grund",
     "firma", "company", "virksomhed",
     "bemaerk", "kommentar", "comment", "beskriv", "tekst", "note",
 )
 
-# Praefikser der markerer et spoergsmaalsfelt. Svaret er en kategori — "Ja",
-# "Nej", en rolle — og ikke persondata, saa det vises selvom feltnavnet
-# indeholder et ord fra spaerrelisten. Uden denne undtagelse ville
-# "er_udfylder_grundejer_raadgiver_eller_andet" blive maskeret, og netop det
-# felt afgoer hvilke valgmuligheder SharePoint-kolonnen skal have.
+# Praefikser der markerer et spoergsmaalsfelt. Svaret KAN vaere en kategori —
+# "Ja", "Nej", en rolle — men praefikset alene kan ikke skelne det fra et frit
+# tekstfelt (fx "har_du_en_anden_adresse"), saa det er ikke i sig selv nok til
+# at vise vaerdien. Se is_question().
 QUESTION_PREFIXES = ("er_", "har_", "oensker_", "skal_", "vil_", "hvilken_type", "type_")
 
 # Feltnavne hvor vaerdien typisk er en kategori og ikke persondata.
 SAFE_VALUE_HINTS = ("rolle", "status", "kategori")
+
+# Eksplicit tilladelsesliste over feltnavne hvis vaerdi altid maa vises — efter
+# eksakt navn, ikke praefiks eller delstreng. Et praefiks som "er_" eller
+# "har_" kan ikke skelne en kategori-spoergsmaal fra et frit tekstfelt (fx
+# "har_du_en_anden_adresse" er ikke en kategori), saa listen er bevidst
+# opt-in med det fulde feltnavn i stedet for et moenster. Begge felter herunder
+# er verificeret mod den faktiske blanket:
+#   - "er_udfylder_grundejer_raadgiver_bygherre_eller_andet": rollen afgoer
+#     hvilke valgmuligheder SharePoint-kolonnen skal have.
+#   - "ansoegning_indsendt_af": ligeledes en fast kategori af indsendertyper.
+ALLOWED_FIELDS = frozenset({
+    "er_udfylder_grundejer_raadgiver_bygherre_eller_andet",
+    "ansoegning_indsendt_af",
+})
 
 # Laengste vaerdi der vises for et felt der ligner en valgmulighed.
 MAX_CHOICE_LENGTH = 40
@@ -82,8 +96,21 @@ def is_sensitive(path: str) -> bool:
 
 
 def is_question(path: str) -> bool:
-    """Afgoer om feltet er et spoergsmaal, hvis svar er en kategori."""
+    """Afgoer om feltet ligner et kategori-spoergsmaal ud fra praefikset.
+
+    Praefikset alene er ikke nok — kaldes altid sammen med `not is_sensitive`,
+    ligesom `_is_category`, saa et felt som "har_du_en_anden_adresse" stadig
+    maskeres.
+    """
     return path.lower().startswith(QUESTION_PREFIXES)
+
+
+def is_allowed(path: str) -> bool:
+    """Afgoer om feltet staar paa den eksplicitte tilladelsesliste.
+
+    Eksakt navn, ikke praefiks — se ALLOWED_FIELDS.
+    """
+    return path.lower() in ALLOWED_FIELDS
 
 
 def describe_scalar(path: str, value: Any, show_values: bool = False) -> str:
@@ -96,9 +123,12 @@ def describe_scalar(path: str, value: Any, show_values: bool = False) -> str:
         return f"bool = {value}"
     if isinstance(value, (int, float)):
         # Tal kan ogsaa vaere persondata — et husnummer, et telefonnummer.
-        if is_sensitive(path) and not show_values:
-            return f"{type_name} (maskeret)"
-        return f"{type_name} = {value}"
+        # Maskeres som udgangspunkt (ikke kun naar navnet er paa spaerrelisten)
+        # og vises kun hvis show_values er sat, eller feltet staar paa den
+        # eksplicitte tilladelsesliste.
+        if show_values or is_allowed(path):
+            return f"{type_name} = {value}"
+        return f"{type_name} (maskeret)"
 
     return _describe_text(path, str(value), type_name, show_values)
 
@@ -115,12 +145,20 @@ def _describe_text(path: str, text: str, type_name: str, show_values: bool) -> s
     if known_format and not show_values:
         return f"{type_name} ({known_format})"
 
-    # Spoergsmaalsfelter vises selvom navnet indeholder et spaerret ord — svaret
-    # er en kategori, ikke en oplysning om borgeren. Derfor gaar de forud for
-    # spaerrelisten nedenfor.
+    # Den eksplicitte tilladelsesliste vises altid, ogsaa hvis navnet ellers
+    # ville rammes af SENSITIVE_HINTS (fx "udfylder" i
+    # "er_udfylder_grundejer_raadgiver_bygherre_eller_andet") — det er netop
+    # pointen med et opt-in-navn: det er verificeret mod den faktiske blanket.
+    if show_values or is_allowed(path):
+        return f'{type_name} = "{text}"'
+
+    # Spoergsmaalsfelter vises kun naar navnet IKKE ogsaa rammer spaerrelisten
+    # — praefikset alene kan ikke skelne en kategori fra et frit tekstfelt.
     short = len(text) <= MAX_CHOICE_LENGTH
-    reveal = show_values or (short and (is_question(path) or _is_category(path)))
-    if reveal:
+    looks_like_category = short and (
+        (is_question(path) and not is_sensitive(path)) or _is_category(path)
+    )
+    if looks_like_category:
         return f'{type_name} = "{text}"'
 
     masked = " (maskeret," if is_sensitive(path) else " ("

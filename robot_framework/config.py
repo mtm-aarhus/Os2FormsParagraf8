@@ -6,13 +6,19 @@ MAX_RETRY_COUNT = 3
 # Whether the robot should be marked as failed if MAX_RETRY_COUNT is reached.
 FAIL_ROBOT_ON_TOO_MANY_ERRORS = True
 
-# Error screenshot config
-SMTP_SERVER = "smtp.adm.aarhuskommune.dk"
-SMTP_PORT = 25
-SCREENSHOT_SENDER = "robot@friend.dk"
+# Afsenderadresse paa fejlmails. Skal matche en afsender som SMTP-relæet
+# accepterer — sæt den til en reel aarhuskommune.dk-afsender, ikke en
+# vilkaarlig streng, foer robotten koerer i produktion.
+SCREENSHOT_SENDER = "paragraf8robot@aarhuskommune.dk"
 
 # Constant/Credential names
 ERROR_EMAIL = "Error Email"
+
+# SMTP-server og -port hentes som OpenOrchestrator-constants i stedet for at
+# staa som literaler her — relæet ("SmtpServer") accepterer uautentificeret
+# mail, saa hverken hostnavn eller port hoerer hjemme i et offentligt repo.
+SMTP_SERVER_CONSTANT = "SmtpServer"
+SMTP_PORT_CONSTANT = "SmtpPort"
 
 
 # OS2Forms
