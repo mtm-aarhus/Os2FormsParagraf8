@@ -1,52 +1,49 @@
-"""This module has functionality to send error screenshots via smtp."""
+"""This module has functionality to send error emails via smtp.
+
+Skaermbilledet er deliberat fjernet: robotten koerer headless og har ingen UI,
+saa ImageGrab.grab() kan kun fange hvad der ELLERS er paa OO-workerens
+skrivebord — potentielt en anden robots vindue eller en sagsbehandlers skaerm
+med persondata. En robot uden UI har ingen legitim grund til at maile et
+skaermbillede, saa funktionen sender nu kun fejlteksten.
+"""
 
 import smtplib
 from email.message import EmailMessage
-import base64
 import traceback
-from io import BytesIO
-
-from PIL import ImageGrab
 
 from robot_framework import config
 
 
-def send_error_screenshot(to_address: str | list[str], exception: Exception, process_name: str):
-    """Sends an email with an error report, including a screenshot, when an exception occurs.
-    Configuration details such as SMTP server, port, sender email, etc., should be set in 'config' module.
+def send_error_screenshot(to_address: str | list[str], exception: Exception, process_name: str,
+                           smtp_server: str, smtp_port: int):
+    """Sends an email with an error report when an exception occurs.
+    Sender address is set in the 'config' module. SMTP server and port are passed in by the
+    caller, read at runtime from OpenOrchestrator constants — see config.SMTP_SERVER_CONSTANT
+    and config.SMTP_PORT_CONSTANT — rather than being literals in this repository.
+
+    Funktionsnavnet er bevaret af hensyn til de der kalder den, men den
+    vedhaefter ikke laengere noget skaermbillede — se modulets docstring.
 
     Args:
         to_address: Email address or list of addresses to send the error report.
         exception: The exception that triggered the error.
         process_name: Name of the process from OpenOrchestrator.
+        smtp_server: SMTP-relæets hostnavn, hentet fra en OpenOrchestrator-constant.
+        smtp_port: SMTP-relæets port, hentet fra en OpenOrchestrator-constant.
     """
     # Create message
     msg = EmailMessage()
     msg['to'] = to_address
     msg['from'] = config.SCREENSHOT_SENDER
-    msg['subject'] = f"Error screenshot: {process_name}"
+    msg['subject'] = f"Error: {process_name}"
 
-    # Denne robot har ingen UI — et skaermbillede viser sjaeldent noget nyttigt, og
-    # ImageGrab kan fejle helt hvis robotten koerer i en session uden skrivebord.
-    # Fejlteksten er det vigtige, saa den sendes uanset om billedet lykkes.
-    screenshot_html = ""
-    try:
-        screenshot = ImageGrab.grab()
-        buffer = BytesIO()
-        screenshot.save(buffer, format='PNG')
-        screenshot_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        screenshot_html = f'<img src="data:image/png;base64,{screenshot_base64}" alt="Screenshot">'
-    except Exception:  # pylint: disable=broad-exception-caught
-        screenshot_html = "<p><i>Kunne ikke tage skaermbillede.</i></p>"
-
-    # Create an HTML message with the exception and screenshot
+    # Create an HTML message with the exception only — intet skaermbillede.
     html_message = f"""
     <html>
         <body>
             <p>Error type: {type(exception).__name__}</p>
             <p>Error message: {exception}</p>
             <p>{traceback.format_exc()}</p>
-            {screenshot_html}
         </body>
     </html>
     """
@@ -55,6 +52,6 @@ def send_error_screenshot(to_address: str | list[str], exception: Exception, pro
     msg.add_alternative(html_message, subtype='html')
 
     # Send message
-    with smtplib.SMTP(config.SMTP_SERVER, config.SMTP_PORT) as smtp:
+    with smtplib.SMTP(smtp_server, int(smtp_port)) as smtp:
         smtp.starttls()
         smtp.send_message(msg)

@@ -154,7 +154,7 @@ Kommer fra `adresser` i blanketten, som er en liste af blokke med tre felter.
 |---|---|---|---|
 | **Ansogning** | Opslag (Lookup) | | Hent fra `P8Ansogninger`, felt `Title`. Enkelt værdi |
 | **SubmissionUUID** | Enkelt tekstlinje | | **Skal indekseres** |
-| **Adresse** | Enkelt tekstlinje | `vaelg_adresse` | Hele adressen på én linje, fx `Kildeagervej 341, 8361 Hasselager` |
+| **Adresse** | Enkelt tekstlinje | `vaelg_adresse` | Hele adressen på én linje, fx `Eksempelvej 1, 9999 Eksempelby` |
 | **Matrikel** | Enkelt tekstlinje | `mat` | |
 | **LokalitetsNummer** | Enkelt tekstlinje | `lokalitets_nummer` | Jordforureningslokalitet |
 
