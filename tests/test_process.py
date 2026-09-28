@@ -6,6 +6,9 @@ api-key-headeren). Et vellagt uuid skal derfor afvises tidligt, foer det
 naar nogen af de to steder — se robot_framework/process.py::_validate_submission_uuid.
 """
 
+# Testnavnene beskriver hvad der testes.
+# pylint: disable=missing-function-docstring
+
 import pytest
 
 from robot_framework import process

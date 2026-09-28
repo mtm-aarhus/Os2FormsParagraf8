@@ -7,6 +7,10 @@ testene her daekker. Er den rigtige pakke installeret i miljoeet, bruges den i
 stedet — stubben tager kun over naar importen ellers ville fejle.
 """
 
+# Importerne inde i funktionen er med vilje: de proever om den rigtige pakke
+# findes, og bruges ikke bagefter. Stub-klasserne er bevidst minimale.
+# pylint: disable=import-outside-toplevel,unused-import,too-few-public-methods
+
 import sys
 import types
 

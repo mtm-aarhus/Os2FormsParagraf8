@@ -11,6 +11,9 @@ Daekker saerligt de to sikkerhedshuller der er rettet:
    delstreng af "postnummer").
 """
 
+# Testnavnene beskriver hvad der testes.
+# pylint: disable=missing-function-docstring
+
 from src.struktur import ALLOWED_FIELDS, describe_scalar, describe_structure, is_sensitive
 
 

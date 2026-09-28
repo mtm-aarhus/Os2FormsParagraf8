@@ -15,7 +15,7 @@ from robot_framework import config
 
 
 def send_error_screenshot(to_address: str | list[str], exception: Exception, process_name: str,
-                           smtp_server: str, smtp_port: int):
+                          smtp_server: str, smtp_port: int):
     """Sends an email with an error report when an exception occurs.
     Sender address is set in the 'config' module. SMTP server and port are passed in by the
     caller, read at runtime from OpenOrchestrator constants — see config.SMTP_SERVER_CONSTANT
