@@ -19,7 +19,6 @@ Færdigt:
 - Robot-stillads (kø-framework, config, fejlhåndtering)
 - OS2Forms-klient
 - SharePoint-klient
-- Specifikation af SharePoint-lister (`SHAREPOINT-LISTER.md`)
 - Feltmapningen (`src/mapper.py`), skrevet og testet mod en faktisk
   testindsendelse fra den nuværende blanket
 
@@ -27,7 +26,7 @@ Mangler:
 
 - Oprettelse af SharePoint-listerne
 - Opslag af vedhæftede filer — blanketten giver kun fil-id'er, ikke navne
-  eller URL'er (se åbent punkt 1 i `SHAREPOINT-LISTER.md`)
+  eller URL'er (REST-API'ets `/entity/file/{file_id}` er ikke afprøvet)
 - Webhook-opsætning på blanketten mod PyOrchestrator API'et
 - Triggere i OpenOrchestrator
 - SPFx-dashboardet (separat projekt)
@@ -36,8 +35,8 @@ Mangler:
 
 | | |
 |---|---|
-| Site | `https://aarhuskommune.sharepoint.com/teams/NaturogMiljDashboard` |
-| Frontend-side | [§8-Ansøgninger – Jord og Grundvand](https://aarhuskommune.sharepoint.com/teams/NaturogMiljDashboard/SitePages/%C2%A78-Ans%C3%B8gninger---Jord-og-Grundvand.aspx) |
+| Site | `https://aarhuskommune.sharepoint.com/teams/Jordportalen` |
+| Frontend-side | [§8-Ansøgninger – Jord og Grundvand](https://aarhuskommune.sharepoint.com/teams/Jordportalen/SitePages/%C2%A78-Ans%C3%B8gninger---Jord-og-Grundvand.aspx) |
 | Lister | `P8Ansogninger`, `P8Adresser`, `P8Kontakter`, `P8Vedhaeftninger` |
 
 ## Blanketten
@@ -212,7 +211,6 @@ src/
   mapper.py              Blanket til SharePoint-felter  ← mangler
 scripts/
   hent_eksempel_submission.py   Henter en indsendelse til brug for mapningen
-SHAREPOINT-LISTER.md     Specifikation af listerne
 ```
 
 ## Historik

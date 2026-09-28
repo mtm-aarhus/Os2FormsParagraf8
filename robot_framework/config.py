@@ -56,18 +56,19 @@ SHAREPOINT_CERT_CREDENTIAL = "SharePointCert"
 # Constant med base-URL'en; sitets sti saettes bagefter.
 SHAREPOINT_BASE_CONSTANT = "AarhusKommuneSharePoint"
 
-# Natur og Miljoe Dashboard — samme site som SPFx-frontenden bygges paa.
+# Jordportalen — samme site som SPFx-frontenden bygges paa.
 # Bemaerk lille t i /teams/, hvor de oevrige MTM-robotter bruger /Teams/.
-SHAREPOINT_SITE_PATH = "/teams/NaturogMiljDashboard"
+SHAREPOINT_SITE_PATH = "/teams/Jordportalen"
 
-# Listenavne. Skal matche SHAREPOINT-LISTER.md praecist.
+# Listenavne. Skal matche listerne paa sitet praecist.
 LIST_ANSOGNINGER = "P8Ansogninger"
 LIST_ADRESSER = "P8Adresser"
 LIST_KONTAKTER = "P8Kontakter"
 LIST_VEDHAEFTNINGER = "P8Vedhaeftninger"
 
 # Feltet der bruges til dubletfiltrering. Bemaerk at dette er det INTERNE
-# kolonnenavn — se "Interne kolonnenavne" i SHAREPOINT-LISTER.md.
+# kolonnenavn, ikke visningsnavnet — SharePoint koder specialtegn om og
+# afkorter ved 32 tegn.
 DEDUP_FIELD = "SubmissionUUID"
 
 
