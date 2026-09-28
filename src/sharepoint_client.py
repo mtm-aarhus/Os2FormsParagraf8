@@ -1,7 +1,4 @@
-"""Klient til de fire §8-lister i SharePoint.
-
-Kolonnenavne og listestruktur er beskrevet i SHAREPOINT-LISTER.md.
-"""
+"""Klient til de fire §8-lister i SharePoint."""
 
 import logging
 from typing import Any, Optional
@@ -18,7 +15,10 @@ LOOKUP_FIELD = "AnsogningId"  # Lookup-kolonner saettes med Id-suffiks via REST
 
 # Kolonner der er af typen "Hyperlink eller billede" og derfor skal pakkes ind
 # i en SP.FieldUrlValue frem for at saettes som ren tekst.
-URL_FIELDS = {"SamletPdfUrl", "FilUrl"}
+# Skal holdes i trit med Hyperlink-kolonnerne i listerne. En
+# URL-kolonne der mangler her, sendes som ren tekst, og SharePoint afviser
+# saa hele raekken.
+URL_FIELDS = {"OS2FormsUrl", "FilUrl"}
 
 
 def build_context(site_url: str, tenant: str, client_id: str, thumbprint: str, cert_path: str) -> ClientContext:

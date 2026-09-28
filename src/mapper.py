@@ -5,7 +5,8 @@ Skrevet ud fra en faktisk testindsendelse fra den nuvaerende blanket
 gamle Flask-webhooks — blanketten blev lavet markant om, og den gamle mapning i
 app.py gaelder ikke laengere.
 
-Kolonnenavnene paa hoejre side skal matche SHAREPOINT-LISTER.md praecist.
+Kolonnenavnene paa hoejre side er de INTERNE SharePoint-kolonnenavne og skal
+matche listerne paa sitet praecist.
 
 To uregelmaessigheder i blanketten, som koden er noedt til at leve med:
 
@@ -222,7 +223,8 @@ def _map_vedhaeftninger(data: dict) -> list[dict]:
 
     Blanketten leverer kun fil-id'er, ikke URL'er eller filnavne. Skal filerne
     kunne aabnes fra dashboardet, skal id'erne slaas op via REST-API'ets
-    /entity/file/{file_id} — se aabent punkt 1 i SHAREPOINT-LISTER.md.
+    /entity/file/{file_id}, som endnu ikke er afproevet. Indtil da staar
+    Filnavn og FilUrl tomme.
     """
     vedhaeftninger = []
     for entry in data.get("upload_dokumenter") or []:
